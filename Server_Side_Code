@@ -1,0 +1,57 @@
+import pickle
+import struct
+import cv2
+import socket
+
+# Set up server details
+port = 1254
+server_ip = "0.0.0.0"  # Listen on all network interfaces
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_socket.bind(("192.168.56.1", port))  # Bind to the specific IP and port
+server_socket.listen(5)  # Allows the server to accept incoming connections
+
+print(f"Server listening on {server_ip}:{port}...")
+
+# Accept client connection
+client_socket, client_address = server_socket.accept()
+print(f"Connection from {client_address}")
+
+# Set up camera for image capture
+camera = cv2.VideoCapture(0)  # 0 is usually the default camera
+
+if not camera.isOpened():
+    print("Error: Could not access the camera.")
+    exit()
+
+try:
+    while True:
+        # Capture a frame from the camera
+        ret, frame = camera.read()
+
+        if not ret:
+            print("Failed to capture image.")
+            break
+
+        # Serialize the image using pickle
+        img_data = pickle.dumps(frame)
+
+        # Send the size of the image data first
+        msg_size = struct.pack("Q", len(img_data))
+        client_socket.sendall(msg_size)
+
+        # Send the image data
+        client_socket.sendall(img_data)
+        print("Image sent to client.")
+
+        # Display the image on the server (optional)
+        cv2.imshow("Server Camera", frame)
+
+        # Press 'Enter' to stop the loop
+        if cv2.waitKey(1) == 13:
+            break
+finally:
+    # Clean up
+    camera.release()
+    client_socket.close()
+    server_socket.close()
+    cv2.destroyAllWindows()
